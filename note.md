@@ -16,7 +16,6 @@ Pulsar是一个多租户，高性能的服务器间消息传递解决方案，�
 - 拥有基于Pulsar Function的serverless connector框架 Pulsar IO，其能够使数据更好的迁入移除Apache Pulsar。
 - 当数据老化时，通过分层存储，将数据从热存储转移到冷存储（例如S3和GCS）。
 ## 1.2 消息传递（Messaging）
-### 消息传递（Messaging）
 Pulsar是基于 [发布-订阅](https://en.wikipedia.org/wiki/Publish%E2%80%93subscribe_pattern) 模式(也可以缩写为pub-sub)。在这种模式下，producers发布消息到topics中；consumers订阅这些topic，处理传入的消息，并且当处理消息结束时发送一个ack给broker。  
 
 当一个订阅被创建时，Pulsar会保留所有的消息，即使consumer断开链接。只有当某一个消费者成功处理完毕这些消息，发送了ack后，这些被保留下来的消息才会被丢弃。  
