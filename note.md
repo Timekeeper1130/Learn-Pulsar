@@ -66,4 +66,10 @@ producer对于topic可以有不同的访问模式
 > 一旦一个应用程序成功获取到了`独占（Exclusive）`或`等待独占（WaitForExclusive）`的访问模式，那么可以保证该topic**只会被这个应用实例写入**。任何其他producers尝试该topic生产消息时都会得到一个错误响应或者等待直到它们得到`等待独占（WaitForExclusive）`的访问模式。更多信息，请查看PIP 68: Exclusive Producer。
 你可以通过Java客户端API来设置producer的访问模式，对于更多信息，可以查看ProducerBuilder.java文件中的`ProducerAccessMode`。
 #### 压缩（Compression）
+你可以在producer发布消息的过程中进行消息压缩。Pulsar目前支持以下几种压缩类型。
+- [LZ4](https://github.com/lz4/lz4)
+- [ZLIB](https://zlib.net/)
+- [ZSTD](https://facebook.github.io/zstd/)
+- [SNAPPY](https://google.github.io/snappy/)
 #### 批量处理（Batching）
+#### 分块（Chunking）
