@@ -34,7 +34,7 @@ Pulsar是基于 [发布-订阅](https://en.wikipedia.org/wiki/Publish%E2%80%93su
 |Sequence ID|在topic中，每个Pulsar消息都属于一个有序序列，消息的序列ID可以由producer初始化，来指明其在序列中的顺序，也可以自定义。</br>序列ID可以用来消除重复的消息。如果 `brokerDeuplicationEnabled`被设置为`true`的话，那么每个消息的序列ID在每个topic（非分区）或者一个分区中唯一。|
 |Message ID|消息的消息ID会在被bookies持久化时分配。消息ID指明了消息在ledger中的特殊位置，以及其在Pulsar集群中是唯一的。|
 |Publish time|一个消息被发布时的时间戳，时间戳会自动由producer赋值。|
-|event time|一个由应用程序赋值给消息的可选时间戳。比如，应用程序可以选择在这个消息被处理时，给这个属性赋上一个时间。如果没有设置event time，它的值为`0`|
+|Event time|一个由应用程序赋值给消息的可选时间戳。比如，应用程序可以选择在这个消息被处理时，给这个属性赋上一个时间。如果没有设置event time，它的值为`0`|
 消息的最大默认大小为 5MB 。你可以在配置中设置消息的最大大小。
 - 在`broker.conf`文件中
 ```
@@ -72,4 +72,11 @@ producer对于topic可以有不同的访问模式
 - [ZSTD](https://facebook.github.io/zstd/)
 - [SNAPPY](https://google.github.io/snappy/)
 #### 批量处理（Batching）
+当启用批量处理时，producer会将消息积累起来，在一个request中将这些消息一起发送。批量处理的量大小取决于最大消息数和最大发布延迟。因此，积压数量是批量处理的总数，而不是消息的总数。  
+
+在Pulsar中，批（batch）作为存储和追踪的基本单位，而不是单个消息作为存储和追踪的基本单位。Consumer将一个batch拆解为单个消息。但是，即使开启了批处理，延时消息（被配置了参数`deliverAt`或`deliverAfter`）始终会被当但一个独立的消息进行发送。  
+
+通常情况下，当一个consumer确认了batch中的所有消息，这个batch才会被视为确认。这意味着如果**没有**将一个batch中的所有消息进行确认（如意料之外的失败、否定确认或者是确认超时），那么该batch中的所有消息将会被重新发送，即使有部分消息已经被确认过了。
+
+为了避免重新将batch中已经被确认的消息发送给consumer，Pulsar从2.6.0版本开始引入了批量索引确认（batch index acknowledgement）。当批量索引确认启用时
 #### 分块（Chunking）
