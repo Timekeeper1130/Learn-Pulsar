@@ -24,7 +24,7 @@ Pulsar是基于 [发布-订阅](https://en.wikipedia.org/wiki/Publish%E2%80%93su
 ### 消息（Message）
 消息（Message）是Pulsar的基本“单位”。下表列出了消息包含的一些组件信息。  
 |组件（Component）|描述（Description）|
-|:---|:---|
+|:---:|:---|
 |Value/data payload|消息携带数据。所有Pulsar消息都包含原始字节，即使消息也可以符合数据模式。|
 |Key|消息可以随意地被key所标记，这对一些事情十分有用，比如topic压缩。|
 |Properties|用户自定义的键值对（可选）。|
@@ -53,7 +53,7 @@ nettyMaxFrameSizeBytes=5253120
 #### 发送模式（Send Modes）
 生产者可以选择同步发送（sync）或者异步发送（async）
 |模式（Mode）|描述（Description）|
-|:----------|:-----------------|
+|:---------:|:-----------------|
 |同步发送（Sync）|producer每次发送消息后都会等待broker返回ack。如果producer没有收到ack，会将此次发送视为失败。|
 |异步发送（Async）|producer会将消息放入阻塞队列中并且马上返回。客户端在后台将消息发送给broker。如果队列满了（可以在配置中设置最大size），当调用API时producer会被阻塞或者立马失败，这取决于传递给producer的参数。|
 #### 访问模式（Access Mode）
@@ -79,5 +79,19 @@ producer对于topic可以有不同的访问模式
 
 通常情况下，当一个consumer确认了batch中的所有消息，这个batch才会被视为确认。这意味着如果**没有**将一个batch中的所有消息进行确认（如意料之外的失败、否定确认或者是确认超时），那么该batch中的所有消息将会被重新发送，即使有部分消息已经被确认过了。
 
-为了避免重新将batch中已经被确认的消息发送给consumer，Pulsar从2.6.0版本开始引入了批量索引确认（batch index acknowledgement）。当批量索引确认启用时
+为了避免重新将batch中已经被确认的消息发送给consumer，Pulsar从2.6.0版本开始引入了批量索引确认（batch index acknowledgement）。当批量索引确认启用时，consumer会过滤掉那些已经确认过的batch index，并将这些batch index发送给broker。broker维护且追踪每个batch index的ack状态以防止向consumer发送那些已被确认过的消息。只有当batch中的所有消息被确认时，batch才会被删除。  
+
+默认情况下，批量索引确认是禁用的（`acknowledgmentAtBatchIndexLevelEnable=false`）。你可以在broker端设置参数`acknowledgmentAtBatchIndexLevelEnable`为`true`来启用它。启用批量索引确认会带来更多的内存开销。
 #### 分块（Chunking）
+消息分块能够使Puslar在producer端将消息进行分块，在consumer端将聚合分块消息，这样能够很好的处理大型负载消息。  
+
+当消息分块启用时，当消息的大小超过了允许的最大载荷（即在broker处的参数配置`maxMessageSize`），消息的工作流会如下所示：
+1. producer端将原始消息拆分为分块消息，并且将他们与分块元数据（metadata）单独分开，按顺序发布到broker上。
+2. broker会将分块消息同其他普通消息一样，放在一个管理台账上，并且会使用`chunkedMessageRate`参数来记录这个topic中分块消息的速度。
+3. consumer端缓存分块消息，并且当收到了一个消息的所有分块时，会将它们聚合起来，放入receiver queue中。
+4. 客户端消费从receiver queue中聚合的数据。
+##### 局限性
+- 分块只对持久化的topic有用。
+- 分块只对独占和灾备的订阅类型有用。
+- 分块无法与批处理（batching）同时启用。
+#### 消费者有序处理连续的分块消息
