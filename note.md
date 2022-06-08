@@ -95,3 +95,4 @@ producer对于topic可以有不同的访问模式
 - 分块只对独占和灾备的订阅类型有用。
 - 分块无法与批处理（batching）同时启用。
 #### 消费者有序处理连续的分块消息
+![image](/imgs/producer/chunking-01.png)
