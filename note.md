@@ -146,6 +146,6 @@ consumer.acknowledge(msg);
 ```
 consumer.acknowledgeCumulative(msg);
 ```
-> ！注意
+> #### ！注意
 > 累计消息确认无法用于共享订阅类型，因为共享订阅类型涉及到多个consumers，这些consumers可以访问到同一个订阅。在共享订阅类型中，消息总是独立确认。
 
