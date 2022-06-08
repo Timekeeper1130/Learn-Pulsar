@@ -21,7 +21,7 @@ Pulsar是基于 [发布-订阅](https://en.wikipedia.org/wiki/Publish%E2%80%93su
 当一个订阅被创建时，Pulsar会保留所有的消息，即使consumer断开链接。只有当某一个消费者成功处理完毕这些消息，发送了ack后，这些被保留下来的消息才会被丢弃。  
 
 如果一个消息消费失败，并且你希望这个消息能够被再次消费，你可以启用消息重新传递机制来要求broker重新发送这些消息。
-### 消息（Message）
+### 1.2.1 消息（Message）
 消息（Message）是Pulsar的基本“单位”。下表列出了消息包含的一些组件信息。  
 |组件（Component）|描述（Description）|
 |:---:|:---|
@@ -48,31 +48,31 @@ maxMessageSize=5242880
 nettyMaxFrameSizeBytes=5253120
 ```
 对于更多的Pulsar消息的信息，可以查看Pulsar binary protocol，
-### 生产者（Producers）
+### 1.2.2 生产者（Producers）
 生产者是一个与topic建立连接，并且可以把消息发布到Pulsar broker上的进程。Pulsar broker将会处理这些消息。
-#### 发送模式（Send Modes）
+#### 1.2.2.1 发送模式（Send Modes）
 生产者可以选择同步发送（sync）或者异步发送（async）
 |模式（Mode）|描述（Description）|
 |:---------:|:-----------------|
 |同步发送（Sync）|producer每次发送消息后都会等待broker返回ack。如果producer没有收到ack，会将此次发送视为失败。|
 |异步发送（Async）|producer会将消息放入阻塞队列中并且马上返回。客户端在后台将消息发送给broker。如果队列满了（可以在配置中设置最大size），当调用API时producer会被阻塞或者立马失败，这取决于传递给producer的参数。|
-#### 访问模式（Access Mode）
+#### 1.2.2.2 访问模式（Access Mode）
 producer对于topic可以有不同的访问模式
 |访问模式（Access mode）|描述（Description）|
 |:--------------------:|:-----------------|
 |`共享（shared）`|多个producers可以向同一个topic进行消息发布。</br></br>这是**默认**的设置。|
 |`独占（Exclusive）`|一个topic只能有一个producer进行消息发布。</br></br>如果已经有一个producer连接了该topic，其他producers尝试往这个topic上发布消息时会立马提示错误。</br></br>当“旧”producer与broker发生网络分区时，“旧”producer会被剔除，“新”producer会被选为下一个独占对象。|
 |`等待独占（WaitForExclusive）`|如果已经有一个producer连接了该topic，那么新producer的连接会被挂起（而不是超时），直到新producer获取到`独占（Exclusive）`访问权。</br></br>获得到独占访问权的producer被视为leader。因此，如果你想要让你的应用实现leader选举方案，你可以使用这种访问模式。|
-> #### ！小记     
+> #### ！注意
 > 一旦一个应用程序成功获取到了`独占（Exclusive）`或`等待独占（WaitForExclusive）`的访问模式，那么可以保证该topic**只会被这个应用实例写入**。任何其他producers尝试该topic生产消息时都会得到一个错误响应或者等待直到它们得到`等待独占（WaitForExclusive）`的访问模式。更多信息，请查看PIP 68: Exclusive Producer。
 你可以通过Java客户端API来设置producer的访问模式，对于更多信息，可以查看ProducerBuilder.java文件中的`ProducerAccessMode`。
-#### 压缩（Compression）
+#### 1.2.2.3 压缩（Compression）
 你可以在producer发布消息的过程中进行消息压缩。Pulsar目前支持以下几种压缩类型。
 - [LZ4](https://github.com/lz4/lz4)
 - [ZLIB](https://zlib.net/)
 - [ZSTD](https://facebook.github.io/zstd/)
 - [SNAPPY](https://google.github.io/snappy/)
-#### 批量处理（Batching）
+#### 1.2.2.4 批量处理（Batching）
 当启用批量处理时，producer会将消息积累起来，在一个request中将这些消息一起发送。批量处理的量大小取决于最大消息数和最大发布延迟。因此，积压数量是批量处理的总数，而不是消息的总数。  
 
 在Pulsar中，批（batch）作为存储和追踪的基本单位，而不是单个消息作为存储和追踪的基本单位。Consumer将一个batch拆解为单个消息。但是，即使开启了批处理，延时消息（被配置了参数`deliverAt`或`deliverAfter`）始终会被当但一个独立的消息进行发送。  
@@ -82,17 +82,70 @@ producer对于topic可以有不同的访问模式
 为了避免重新将batch中已经被确认的消息发送给consumer，Pulsar从2.6.0版本开始引入了批量索引确认（batch index acknowledgement）。当批量索引确认启用时，consumer会过滤掉那些已经确认过的batch index，并将这些batch index发送给broker。broker维护且追踪每个batch index的ack状态以防止向consumer发送那些已被确认过的消息。只有当batch中的所有消息被确认时，batch才会被删除。  
 
 默认情况下，批量索引确认是禁用的（`acknowledgmentAtBatchIndexLevelEnable=false`）。你可以在broker端设置参数`acknowledgmentAtBatchIndexLevelEnable`为`true`来启用它。启用批量索引确认会带来更多的内存开销。
-#### 分块（Chunking）
+#### 1.2.2.5 分块（Chunking）
 消息分块能够使Puslar在producer端将消息进行分块，在consumer端将聚合分块消息，这样能够很好的处理大型负载消息。  
 
 当消息分块启用时，当消息的大小超过了允许的最大载荷（即在broker处的参数配置`maxMessageSize`），消息的工作流会如下所示：
 1. producer端将原始消息拆分为分块消息，并且将他们与分块元数据（metadata）单独分开，按顺序发布到broker上。
-2. broker会将分块消息同其他普通消息一样，放在一个管理台账上，并且会使用`chunkedMessageRate`参数来记录这个topic中分块消息的速度。
+2. broker会将分块消息同其他普通消息一样，放在一个managed-ledger上，并且会使用`chunkedMessageRate`参数来记录这个topic中分块消息的速度。
 3. consumer端缓存分块消息，并且当收到了一个消息的所有分块时，会将它们聚合起来，放入receiver queue中。
 4. 客户端消费从receiver queue中聚合的数据。
 ##### 局限性
-- 分块只对持久化的topic有用。
-- 分块只对独占和灾备的订阅类型有用。
-- 分块无法与批处理（batching）同时启用。
-#### 消费者有序处理连续的分块消息
-![image](/imgs/producer/chunking-01.png)
+- 分块只对**持久化**的topic有用。
+- 分块只对**独占**和**灾备**的订阅类型有用。
+- 分块无法与**批处理（batching）**同时启用。
+#### 1.2.2.6 消费者有序处理连续的分块消息
+下图显示了拥有一个producer的topic，producer向topic发送一批大的分块消息和普通的非分块消息。Producer发布消息M1，M1有三个分块M1-C1，M1-C2和M1-C3，Broker会在managed-ledger中存储这三个分块消息，并且把他们以同样的顺序传输到consumer上（consumer为独占或灾备订阅模式）。Consumer在内存中缓存收到的分块消息，当收到所有分块消息时，会将它们聚合成一整个消息M1，然后将原始消息M1发送给客户端。
+<div align="center">
+  <img src="/imgs/producer/chunking-01.png"></img>
+</div>
+
+#### 1.2.2.7 消费者有序处理不连续的分块消息
+当多个消费者往同一个topic发布多个分块消息时，Broker会将所有来自不同的producer的分块消息保存到同一个managed-ledger中。分块们在managed-ledger可以不连续。如下图所示，Producer1发布了消息M1并且分为了三个块M1-C1，M1-C2和M1-C3。Producer2发布了消息M2并且分为了三个块M2-C1，M2-C2以及M2-C3。所有分块消息在该消息内是连续的，但在managed-ledger内可能不是连续的。
+<div align="center">
+  <img src="/imgs/producer/chunking-02.png"></img>
+</div>
+
+> #### ！注意
+> 在这种情况下，不连续的分块消息可能会给consumer端带来一定的内存压力，因为consumer需要为每个大消息保留一定的缓冲区来将这些分块消息合并为原来的大消息。你可以通过配置参数`maxPendingChunkedMessage`来限制consumer端并发维持的最大消息分块数。当达到阈值时，consumer将会丢弃pending的消息通过静默ack或者要求broker过一段时间重新传递，以此来优化内存利用率。
+
+#### 1.2.2.8 启用消息分块
+**必要条件**：通过设置`enableBatching`参数为`false`来禁用批处理（batching）。  
+
+消息分块的特性默认是关闭的。如果要启用它，可以在创建producer时设置`chunkingEnabled`参数为`true`。
+
+> ！注意
+> 如果consumer未能在指定时间能收到一个消息的所有分块，那么这些已收到的分块会过期。默认时间时1分钟。有关`expireTimeOfIncompleteChunkedMessage`参数的更多信息，可以查看org.apache.pulsar.client.api.
+
+### 1.2.3 消费者（Consumers）
+消费者是一个通过订阅topic与其建立连接，然后接收消息的进程。  
+
+一个consumer向broker发送流许可申请（flow permit request）来获取消息。在消费者端有一个队列，用来接收从broker端推送过来的消息。你可以设置参数`receiverQueueSize`来设置这个队列的最大值（默认大小是`1000`）。每当`consumer.receive()`被调用时，就会从缓冲区获取一条消息。
+#### 1.2.3.1 接收模式（Receive modes）
+消息可以从brokers处异步（async）或同步（sync）接收。
+|模式（Mode）|描述（Description）|
+|:---------:|:-----------------|
+|同步接收|同步接收在消息之前会一直被阻塞。|
+|异步接收|异步接收会立马返回一个future value，例如Java中的`CompletableFuture`，当收到消息时，这个future会被立刻完成。|
+#### 1.2.3.2 监听（Listeners）
+客户端为consumer提供了监听器的实现类。例如，Java客户端提供了MessageListener接口。当收到一个新消息时，该接口下的`received`方法会被调用。
+#### 1.2.3.3 确认（Acknowledgement）
+当consumer成功消费一个消息时，它会向broker发送一个确认。这条消息是被永久保存的，只有当所有订阅者都确认了这条消息，这条消息才会被删除。如果你希望这些消息被consumer确认后依旧保留下来，你需要配置消息保留策略。  
+
+对于批量消息，你可以启用批量索引确认来防止已经被ack的消息重复发送给消费者。详细内容请查看批量处理（batching）。
+
+可以通过下面两种方式之一来进行消息确认：
+- 独立消息确认。使用独立消息确认，消费者会为每一条消息发送一个ack给broker。
+- 累计消息确认。使用累计消息确认，消费者**只会**确认收到的最后一个消息。所有之前（包含此条）的消息都不会再被发送给这个consumer（类似tcp的ack？）
+
+如果你想使用独立消息确认，可以使用下面的API。
+```
+consumer.acknowledge(msg);
+```
+如果你想用累计消息确认，可以使用下面的API。
+```
+consumer.acknowledgeCumulative(msg);
+```
+> ！注意
+> 累计消息确认无法用于共享订阅类型，因为共享订阅类型涉及到多个consumers，这些consumers可以访问到同一个订阅。在共享订阅类型中，消息总是独立确认。
+
