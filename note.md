@@ -35,6 +35,7 @@ Pulsar是基于 [发布-订阅](https://en.wikipedia.org/wiki/Publish%E2%80%93su
 |Message ID|消息的消息ID会在被bookies持久化时分配。消息ID指明了消息在ledger中的特殊位置，以及其在Pulsar集群中是唯一的。|
 |Publish time|一个消息被发布时的时间戳，时间戳会自动由producer赋值。|
 |Event time|一个由应用程序赋值给消息的可选时间戳。比如，应用程序可以选择在这个消息被处理时，给这个属性赋上一个时间。如果没有设置event time，它的值为`0`|
+
 消息的最大默认大小为 5MB 。你可以在配置中设置消息的最大大小。
 - 在`broker.conf`文件中
 ```
