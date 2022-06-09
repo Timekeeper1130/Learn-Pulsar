@@ -148,5 +148,114 @@ consumer.acknowledge(msg);
 consumer.acknowledgeCumulative(msg);
 ```
 > #### ！注意
-> 累计消息确认无法用于共享订阅类型，因为共享订阅类型涉及到多个consumers，这些consumers可以访问到同一个订阅。在共享订阅类型中，消息总是独立确认。
+> 累计消息确认无法用于共享订阅类型，因为共享订阅类型涉及到多个consumers，这些consumers可以访问到同一个订阅，如果使用累计消息确认，可能会将别的消费者消费的消息给确认掉。在共享订阅类型中，消息总是独立确认。
+#### 1.2.3.4 否定确认（Negative acknowledgement）
+否定确认机制允许你向broker发送一个提醒，这个提醒意味着consumer没有处理消息。当一个consumer消费消息失败，并且需要重新消费它时，consumer会向broker发送一个否定确认（nack），这会让broker重新发送这条消息给consumer。  
 
+消息可以否定地独立确认，也可以否定地累计确认，这取决于消费者使用的订阅模式。  
+
+在独占和灾备订阅模式下，consumers只会对他们收到的最后一条消息进行否定确认。  
+
+在共享或者Key共享的订阅模式下，consumers可以对消息进行单条的否定确认。  
+
+请注意，对于已有排序的订阅类型（如独占、灾备和Key共享模式）进行否定确认，可能会导致失败的消息没办法像原始顺序一样发送给consumers。  
+
+如果你打算对消息使用否定确认，请确保你的否定确认在确认超时之前发送出去。  
+
+使用下面的API来进行否定确认。  
+```
+Consumer<byte[]> consumer = pulsarClient.newConsumer()
+                            .topic()
+                            .subscriptionName("sub-negative-ack")
+                            .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                            .negativeAckRedeliveryDelay(2, TimeUnit.SECONDS)// the default value is 1 min
+                            .subscribe();
+                       
+Message<byte[]> message = consumer.receive();
+
+// call the API to send negative acknowledgement
+consumer.negativeAcknowledge(message);
+
+message = consumer.receive();
+consumer.acknowledge(message);
+```
+为了让那些重新传递的消息有不同的延迟，你可以通过**重传补偿机制（Negative Redelivery Backoff）** 来设置最大重试传递消息次数。使用下面的API来启用`Negative Redelivery Backoff`。
+```
+Consumer<byte[]> consumer = pulsarClient.newConsumer()
+                            .topic(topic)
+                            .subscriptionName("sub-negative-ack")
+                            .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                            .negativeAckRedeliveryBackoff(MultiplierRedeliveryBackoff.builder()
+                                                          .minDelayMs(1000)
+                                                          .maxDelayMs(60 * 1000)
+                                                          .build())
+                            .subscribe();
+```
+消息的重传行为会像下表一样。
+|重传次数|重传延迟|
+|:------|:------|
+|1|10 + 1 seconds|
+|2|10 + 2 seconds|
+|3|10 + 4 seconds|
+|4|10 + 8 seconds|
+|5|10 + 16 seconds|
+|6|10 + 32 seconds|
+|7|10 + 60 seconds|
+|8|10 + 60 seconds|
+
+> #### ！注意
+> 如果批处理（batching）开启，一批内的消息全部都会被重新传递给consumer。
+#### 1.2.3.5 确认超时（Acknowledgement timeout）
+确认超时机制允许你设置一个范围时间，consumer客户端会去追踪未确认的消息。当这些消息超过了确认时间（`ackTimeout`），客户端会发送`redeliver unacknowledged messages`请求给broker，然后broker会重新发送这些未被确认的消息给consumer。  
+
+你可以配置确认超时机制来重传那些超过了`ackTimeout`却未ack的消息，或者运行一个timer task去检查在每个`ackTimeoutTickTime`间ack超时的消息。  
+
+你也可以使用重传补偿机制（redelivery backoff mechanism），通过不同的延迟来多次重传消息。  
+
+如果你想要用重传补偿，你可以使用如下API。
+```
+consumer.ackTimeout(10, TimeUnit.SECOND)
+        .ackTimeoutRedeliveryBackoff(MultiplierRedeliveryBackoff.builder()
+        .minDelayMs(1000)
+        .maxDelayMs(60000)
+        .multiplier(2).build())
+```
+消息的重传行为会像下表一样。
+|重传次数|重传延迟|
+|:------|:------|
+|1|10 + 1 seconds|
+|2|10 + 2 seconds|
+|3|10 + 4 seconds|
+|4|10 + 8 seconds|
+|5|10 + 16 seconds|
+|6|10 + 32 seconds|
+|7|10 + 60 seconds|
+|8|10 + 60 seconds|
+
+> #### ！注意
+> - 如果批处理（batching）开启，一批内的消息全部都会被重新传递给consumer。
+> - 与确认超时相比，使用否定确认会更好。首先，确认超市很难设置一个超时值。其次，当broker重新发送这些确认超时的消息时，也许这些消息不需要再被重复消费了（超时，并没有消费失败）。
+
+使用如下API来启用确认超时。
+```
+Consumer<byte[]> consumer = pulsarClient.newConsumer()
+                .topic(topic)
+                .ackTimeout(2, TimeUnit.SECONDS) // the default value is 0
+                .ackTimeoutTickTime(1, TimeUnit.SECONDS)
+                .subscriptionName("sub")
+                .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                .subscribe();
+
+Message<byte[]> message = consumer.receive();
+
+// wait at least 2 seconds
+message = consumer.receive();
+consumer.acknowledge(message);
+```
+#### 1.2.3.6 消息重试topic（Retry letter topic）
+重试topic允许你保存一些被consumer消费失败的数据，并且过一段时间consumer会再次尝试消费它们。在这种方式下，你可以自定义每个消息的重传间隔时间。Consumers在所在的原始topic也会自动订阅消息重试topic。一旦某个消息超过了重试最大次数，并且这个消息还是没法被消费时，它会被移动至死信topic（dead letter topic）。  
+
+消息重试topic的概念如下图。
+<div align="center">
+  <img src="/imgs/consumer/retry-letter-topic.svg"></img>
+</div>
