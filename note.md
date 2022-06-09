@@ -2,6 +2,7 @@
 始：2022-06-06  
 终：  
 状态：DOING  
+版本：2.10.0
 # 1. 概念与架构
 ## 1.1. 预览（Overview）
 Pulsar是一个多租户，高性能的服务器间消息传递解决方案，最早由雅虎开发，现在Pulsar由[Apache软件基金会](https://www.apache.org)管理。  
