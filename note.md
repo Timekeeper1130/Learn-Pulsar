@@ -259,3 +259,78 @@ consumer.acknowledge(message);
 <div align="center">
   <img src="/imgs/consumer/retry-letter-topic.svg"></img>
 </div>
+使用消息重试topic与使用消息延迟传递不同，即使他们俩都旨于过一段时间消费消息。消息重试topic是处理消费失败的消息，以确保这些数据不会丢失，而延迟消息传递是单纯的为了在未来的某个特定时间点进行消息传递。  
+
+默认情况下，消息自动重试是关闭的。你可以设置`enableRetry`为`true`来为consumer启用消息重试。  
+
+如何使用消息重试API可以参考下面示例，当重试次数达到`maxRedeliverCount`时，未被消费的消息会被移动至死信topic。
+```
+Consumer<byte[]> consumer = pulsarClient.newConsumer(Schema.BYTES)
+                .topic("my-topic")
+                .subscriptionName("my-subscription")
+                .subscriptionType(SubscriptionType.Shared)
+                .enableRetry(true)
+                .deadLetterPolicy(DeadLetterPolicy.builder()
+                        .maxRedeliverCount(maxRedeliveryCount)
+                        .build())
+                .subscribe();
+```
+默认的消息重试topic会以下面格式命名。
+```
+<topicname>-<subscriptionname>-RETRY
+```
+使用Java客户端来命名你的消息重试topic
+```
+Consumer<byte[]> consumer = pulsarClient.newConsumer(Schema.BYTES)
+        .topic("my-topic")
+        .subscriptionName("my-subscription")
+        .subscriptionType(SubscriptionType.Shared)
+        .enableRetry(true)
+        .deadLetterPolicy(DeadLetterPolicy.builder()
+                .maxRedeliverCount(maxRedeliveryCount)
+                .retryLetterTopic("my-retry-letter-topic-name")
+                .build())
+        .subscribe();
+```
+在消息重试topic中的消息会有一些特殊的属性，这些属性由客户端自动创建
+|特殊属性|描述|
+|:------|:---|
+|`REAL_TOPIC`|对应的实际topic名称。|
+|`ORIGIN_MESSAGE_ID`|原始的消息ID，这对消息追踪很重要。|
+|`RECONSUMETIMES`|消息重试次数|
+|`DELAY_TIME`|消息重试间隔时间|
+##### 例子
+```
+REAL_TOPIC = persistent://public/default/my-topic
+ORIGIN_MESSAGE_ID = 1:0:-1:0
+RECONSUMETIMES = 6
+DELAY_TIME = 3000
+```
+使用下面的API将消息放在重试队列中。
+```
+consumer.reconsumeLater(msg, 3, TimeUnit.SECONDS);
+```
+使用下面的API来为`reconsumerLater`函数增加一些自定义参数属性。在下一次消费时，自定义的属性可以通过message#getProperty获取。
+```
+Map<String, String> customProperties = new HashMap<String, String>();
+customProperties.put("custom-key-1", "custom-value-1");
+customProperties.put("custom-key-2", "custom-value-2");
+consumer.reconsumeLater(msg, customProperties, 3, TimeUnit.SECONDS);
+```
+> #### ！注意
+> - 目前，消息重试topic可以在共享订阅类型中启用。
+> - 与否定确认（nack）相比，消息重试topic更适合需要大量重试的消息。因为在消息重试topic中的消息会被持久化到BookKeeper中，而那些由于被nack，需要重传的消息被缓存在客户端。
+#### 1.2.3.7 死信topic（Dead letter topic）
+死信topic允许你继续消费消息，即使一些消息没法被成功消费。这些被消费失败的消息会被保存到一个特殊的topic中，这个topic称为死信topic。你可以决定如何处理死信topic中的数据。  
+
+在Java客户端中启用默认的死信topic。
+```
+Consumer<byte[]> consumer = pulsarClient.newConsumer(Schema.BYTES)
+                .topic("my-topic")
+                .subscriptionName("my-subscription")
+                .subscriptionType(SubscriptionType.Shared)
+                .deadLetterPolicy(DeadLetterPolicy.builder()
+                      .maxRedeliverCount(maxRedeliveryCount)
+                      .build())
+                .subscribe();
+```
