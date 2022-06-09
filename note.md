@@ -114,7 +114,7 @@ producer对于topic可以有不同的访问模式
 
 消息分块的特性默认是关闭的。如果要启用它，可以在创建producer时设置`chunkingEnabled`参数为`true`。
 
-> ！注意
+> #### ！注意
 > 如果consumer未能在指定时间能收到一个消息的所有分块，那么这些已收到的分块会过期。默认时间时1分钟。有关`expireTimeOfIncompleteChunkedMessage`参数的更多信息，可以查看org.apache.pulsar.client.api.
 
 ### 1.2.3 消费者（Consumers）
