@@ -94,7 +94,7 @@ producer对于topic可以有不同的访问模式
 ##### 局限性
 - 分块只对**持久化**的topic有用。
 - 分块只对**独占**和**灾备**的订阅类型有用。
-- 分块无法与**批处理（batching）**同时启用。
+- 分块无法与**批处理（batching）** 同时启用。
 #### 1.2.2.6 消费者有序处理连续的分块消息
 下图显示了拥有一个producer的topic，producer向topic发送一批大的分块消息和普通的非分块消息。Producer发布消息M1，M1有三个分块M1-C1，M1-C2和M1-C3，Broker会在managed-ledger中存储这三个分块消息，并且把他们以同样的顺序传输到consumer上（consumer为独占或灾备订阅模式）。Consumer在内存中缓存收到的分块消息，当收到所有分块消息时，会将它们聚合成一整个消息M1，然后将原始消息M1发送给客户端。
 <div align="center">
