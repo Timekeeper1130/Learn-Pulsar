@@ -23,8 +23,8 @@ Pulsar是基于 [发布-订阅](https://en.wikipedia.org/wiki/Publish%E2%80%93su
 
 如果一个消息消费失败，并且你希望这个消息能够被再次消费，你可以启用消息重新传递机制来要求broker重新发送这些消息。
 ### 1.2.1 消息（Message）
-消息（Message）是Pulsar的基本“单位”。下表列出了消息包含的一些组件信息。  
-|组件（Component）|描述（Description）|
+消息（Message）是Pulsar的基本“单位”。下表列出了消息包含的一些组成信息。  
+|组成（Component）|描述（Description）|
 |:---:|:---|
 |Value/data payload|消息携带数据。所有Pulsar消息都包含原始字节，即使消息也可以符合数据模式。|
 |Key|消息可以随意地被key所标记，这对一些事情十分有用，比如topic压缩。|
@@ -355,4 +355,14 @@ Consumer<byte[]> consumer = pulsarClient.newConsumer(Schema.BYTES)
 死信topic目前会由确认超时、否定确认或者消息重传topic触发。
 > #### ！注意
 > 目前来说，死信toic允许在share和key_share的订阅类型下使用。
-### 1.2.4 话题（Topics）
+### 1.2.4 主题（Topics）
+像其他发布-订阅的系统一样，Pulsar中的topic是将producers的消息运输给consumers间的通道。Topic有良好的URL命名风格。
+```
+{persistent|non-persistent}://tenant/namespace/topic
+```
+|Topic名称组成|描述|
+|:-----------|:--|
+|`persistent`/`non-persistent`|用来标识topic的类型。Pulsar支持两种类型的topic：persistent和non-persistent。默认情况下是persistent，所以你如果你没有指定某种类型，那么这个topic为persistent类型。persistent的topic，所有消息都会被持久化到硬盘上（如果broker非单机，那么这些消息还会被持久化到多块硬盘上），然而non-persistent的topics不会被持久化到硬盘上。|
+|`tenant`|实例中的topic租户。租户对Pulsar的多租户至关重要，并分布在集群中。|
+|`namespace`|将相关联的topic作为一个组来管理，是管理Topic的基本单元。大多数topic的配置都是在namespace的级别执行。 每个租户里面可以有一个或者多个namespace。|
+|`topic`|名称的最后一部分。topic名称在Pulsar实例中没有特殊意义。|
