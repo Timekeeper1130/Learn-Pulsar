@@ -334,3 +334,25 @@ Consumer<byte[]> consumer = pulsarClient.newConsumer(Schema.BYTES)
                       .build())
                 .subscribe();
 ```
+死信topic的默认以下格式
+```
+<topicname>-<subscriptionname>-DLQ
+```
+使用Java客户端来自定义你的死信topic名
+```
+Consumer<byte[]> consumer = pulsarClient.newConsumer(Schema.BYTES)
+                .topic("my-topic")
+                .subscriptionName("my-subscription")
+                .subscriptionType(SubscriptionType.Shared)
+                .deadLetterPolicy(DeadLetterPolicy.builder()
+                      .maxRedeliverCount(maxRedeliveryCount)
+                      .deadLetterTopic("my-dead-letter-topic-name")
+                      .build())
+                .subscribe();
+```
+默认情况下，在DLQ创建的时候不会有任何订阅存在，这可能会导致你丢失消息。为了给DLQ自动初始化创建一个订阅，你可以自定义`initialSubscriptionName`参数。如果设置了这个参数，但broker的`allowAutoSubscriptionCreation`是禁用的，那么DLQ producer将会创建失败。  
+
+死信topic目前会由确认超时、否定确认或者消息重传topic触发。
+> #### ！注意
+> 目前来说，死信toic允许在share和key_share的订阅类型下使用。
+### 1.2.4 话题（Topics）
