@@ -366,3 +366,8 @@ Consumer<byte[]> consumer = pulsarClient.newConsumer(Schema.BYTES)
 |`tenant`|实例中的topic租户。租户对Pulsar的多租户至关重要，并分布在集群中。|
 |`namespace`|将相关联的topic作为一个组来管理，是管理Topic的基本单元。大多数topic的配置都是在namespace的级别执行。 每个租户里面可以有一个或者多个namespace。|
 |`topic`|名称的最后一部分。topic名称在Pulsar实例中没有特殊意义。|
+#### 不需要去显示创建新topics
+在Pulsar中，你不需要去显示创建topics。当一个客户端尝试去往一个不存在的topic写/从一个不存在的topic中读的时候，Pulsar会在提供的topic名称中的命名空间下自动创建一个topic。如果客户端创建topic时未指定tenant或namespace，那么该topic会被自动创建到default tenant和namespace中。你也可以指定tenant和namespace创建topic，比如`persistent://my-tenant/my-namespace/my-topic`.`persistent://my-tenant/my-namespace/my-topic`意味着`my-topic`这个topic会被创建在命名空间为`my-namespace`以及租户名称为`my-tenant`下。
+### 1.2.5 命名空间（Namespaces）
+命名空间是一个租户（tenant）下的逻辑术语。一个tenant通过admin API创建命名空间（namespace）。举个例子，一个tenant有不同的应用，那么可以为每个应用创建一个namespace来将他们隔离开来。namespace允许应用创建和管理多个topics。topic `my-tenant/app1`是`my-tenant`租户下，应用程序为`app1`的命名空间。你可以在一个namespace下创建多个topic。
+### 1.2.6 订阅（Subscriptions）
