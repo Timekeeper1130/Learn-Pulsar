@@ -372,6 +372,15 @@ Consumer<byte[]> consumer = pulsarClient.newConsumer(Schema.BYTES)
 命名空间是一个租户（tenant）下的逻辑术语。一个tenant通过admin API创建命名空间（namespace）。举个例子，一个tenant有不同的应用，那么可以为每个应用创建一个namespace来将他们隔离开来。namespace允许应用创建和管理多个topics。topic `my-tenant/app1`是`my-tenant`租户下，应用程序为`app1`的命名空间。你可以在一个namespace下创建多个topic。
 ### 1.2.6 订阅（Subscriptions）
 订阅是一种配置规则，用于决定如何将消息传递给消费者。在Pulsar中，有四种订阅规则可以使用：exclusive（独占），shared（共享），failover（灾备）和key_shared（key共享）。这些类型如下图所示。
-<div>
+<div style="margin: 0 auto">
   <img src="/imgs/subscription/subscription-types.png" />
 </div>
+
+> #### Pub-Sub或Queuing
+> 在Pulsar中，你可以灵活地使用不同的订阅模式
+> - 如果你想要在消费者中实现传统的“fan-out pub-sub messaging”，你可以为每个消费者subscription设定一个独一无二的名称。这是独占订阅模式。
+> - 如果你想要在消费者中实现“message queuing”，可以在多个消费者中共享相同的subscription（shared，failover，key_shared）
+> - 如果你想要实现这两种效果，请将exclusive与其他订阅类型相结合。
+ 
+#### 订阅类型（Subscription types）
+当一个subscription没有consumer时，它的订阅类型是未定义的（undefined）。当一个consumer连入subscription时，它的类型才会被定义，可以通过更改消费者配置并重启所有消费来修改订阅类型。
