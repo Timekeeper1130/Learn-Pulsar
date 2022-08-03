@@ -386,5 +386,12 @@ Consumer<byte[]> consumer = pulsarClient.newConsumer(Schema.BYTES)
 当一个subscription没有consumer时，它的订阅类型是未定义的（undefined）。当一个consumer连入subscription时，它的类型才会被定义，可以通过更改消费者配置并重启所有消费来修改订阅类型。
 
 ##### 独占（Exclusive）
-在*独占（Exclusive）*模式下，只有单个consumer被允许链接到subscription中。如果多个consumer使用同一个subscription订阅了topic，那么会发生错误。注意如果topic被分区了，那么所有分区的消息只会被一个consumer消费。
+在**独占（Exclusive）** 模式下，只有单个consumer被允许链接到subscription中。如果多个consumer使用同一个subscription订阅了topic，那么会发生错误。注意如果topic被分区了，那么所有分区的消息只会被一个consumer消费。
+> exclusive是默认的订阅类型
+<div style="margin: 0 auto">
+  <img src="/imgs/subscription/exclusive.png" />
+</div>
+
+##### 灾备（Failover）
+在**灾备（Failover）** 模式下，
 
