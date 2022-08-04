@@ -11,7 +11,7 @@ Pulsar是一个多租户，高性能的服务器间消息传递解决方案，�
 - 本地的一个Pulsar实例中支持多集群部署，集群间可以做到跨地域无缝复制消息。
 - 拥有极低地发布和端到端延迟。
 - 简单的客户端API，支持Java，Go，Python和C++
-- 支持topic多种订阅模式（独占、共享和灾备）
+- 支持topic多种订阅类型（独占、共享和灾备）
 - 通过[Apache BookKeeper](https://bookkeeper.apache.org)提供的消息持久化机制保证消息的传递。
 - 由轻量级的serverless computing框架Pulsar Functions，实现了流原生的数据处理
 - 拥有基于Pulsar Function的serverless connector框架 Pulsar IO，其能够使数据更好的迁入移除Apache Pulsar。
@@ -96,7 +96,7 @@ producer对于topic可以有不同的访问模式
 - 分块只对**独占**和**灾备**的订阅类型有用。
 - 分块无法与**批处理（batching）** 同时启用。
 #### 1.2.2.6 消费者有序处理连续的分块消息
-下图显示了拥有一个producer的topic，producer向topic发送一批大的分块消息和普通的非分块消息。Producer发布消息M1，M1有三个分块M1-C1，M1-C2和M1-C3，Broker会在managed-ledger中存储这三个分块消息，并且把他们以同样的顺序传输到consumer上（consumer为独占或灾备订阅模式）。Consumer在内存中缓存收到的分块消息，当收到所有分块消息时，会将它们聚合成一整个消息M1，然后将原始消息M1发送给客户端。
+下图显示了拥有一个producer的topic，producer向topic发送一批大的分块消息和普通的非分块消息。Producer发布消息M1，M1有三个分块M1-C1，M1-C2和M1-C3，Broker会在managed-ledger中存储这三个分块消息，并且把他们以同样的顺序传输到consumer上（consumer为独占或灾备类型）。Consumer在内存中缓存收到的分块消息，当收到所有分块消息时，会将它们聚合成一整个消息M1，然后将原始消息M1发送给客户端。
 <div align="center">
   <img src="/imgs/producer/chunking-01.png"></img>
 </div>
@@ -154,9 +154,9 @@ consumer.acknowledgeCumulative(msg);
 
 消息可以否定地独立确认，也可以否定地累计确认，这取决于消费者使用的订阅模式。  
 
-在独占和灾备订阅模式下，consumers只会对他们收到的最后一条消息进行否定确认。  
+在独占和灾备订阅类型下，consumers只会对他们收到的最后一条消息进行否定确认。  
 
-在共享或者Key共享的订阅模式下，consumers可以对消息进行单条的否定确认。  
+在共享或者Key共享的订阅类型下，consumers可以对消息进行单条的否定确认。  
 
 请注意，对于已有排序的订阅类型（如独占、灾备和Key共享模式）进行否定确认，可能会导致失败的消息没办法像原始顺序一样发送给consumers。  
 
@@ -377,8 +377,8 @@ Consumer<byte[]> consumer = pulsarClient.newConsumer(Schema.BYTES)
 </div>
 
 > #### Pub-Sub或Queuing
-> 在Pulsar中，你可以灵活地使用不同的订阅模式
-> - 如果你想要在消费者中实现传统的“fan-out pub-sub messaging”，你可以为每个消费者subscription设定一个独一无二的名称。这是独占订阅模式。
+> 在Pulsar中，你可以灵活地使用不同的订阅类型
+> - 如果你想要在消费者中实现传统的“fan-out pub-sub messaging”，你可以为每个消费者subscription设定一个独一无二的名称。这是独占订阅类型。
 > - 如果你想要在消费者中实现“message queuing”，可以在多个消费者中共享相同的subscription（shared，failover，key_shared）
 > - 如果你想要实现这两种效果，请将exclusive与其他订阅类型相结合。
  
@@ -393,5 +393,14 @@ Consumer<byte[]> consumer = pulsarClient.newConsumer(Schema.BYTES)
 </div>
 
 ##### 灾备（Failover）
-在**灾备（Failover）** 模式下，
+在**灾备（Failover）** 模式下，多个消费者可以链接到同一个subscription。可以为非分区或每个分区选择一个主消费者来接受消息。当主消费者失去连接时，所有（未确认和后续）的消息都将会传递给下一个消费者。
+
+对于存在分区的topic，broker将会对消费者通过优先级和名称字典顺序进行排序。然后broker将会尝试将不同分区内的消息平均分配给高优先级的consumer。
+
+对于未分区的topic，broker将会按照订阅的顺序选择consumer。
+
+例如：
+
+
+
 
