@@ -399,8 +399,25 @@ Consumer<byte[]> consumer = pulsarClient.newConsumer(Schema.BYTES)
 
 对于未分区的topic，broker将会按照订阅的顺序选择consumer。
 
-例如：
+例如：一个topic有15个分区以及3个consumer。每个consumer会消费5个分区，每个分区都会有1个活跃的consumer以及4个等待的consumer。
 
+在下图中，**Consumer-B-0**是主consumer，当它失去连接时，**Consumer-B-1**会代替他去接收消息。
+<div style="margin: 0 auto">
+  <img src="/imgs/subscription/failover.png" />
+</div>
 
+##### 共享（Shared）
+在*shared*或*round robin*类型中，多个consumers可以连接到同一个subscription中。消息会通过轮询的方式传递给各个消费者，也有一些指定的消息会被发送给指定的消费者。当一个消费者失去连接，所有已经发送给它但未确认的消息将重新安排发送给其余消费者。
 
+在下图中，**Consumer-C-1** 和 **Consumer-C-2** 可以订阅到同一个topic，当然 **Consumer-C-3** 和其他消费者也可以。
+
+> ###### Shared类型的限制
+> 当使用Shared类型时，请注意
+> - 消息的顺序无法被保证
+> - 无法使用累计消息确认
+<div style="margin: 0 auto">
+  <img src="/imgs/subscription/shared.png" />
+</div>
+
+##### key共享（Key_Shared）
 
