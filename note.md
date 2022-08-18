@@ -442,3 +442,30 @@ Producer<byte[]> producer = client.newProducer()
 > 当你使用Key_Shared类型时，请注意：
 > - 你需要为消息指定一个key
 > - 你无法使用累计消息确认
+
+#### 订阅模式（Subscription modes）
+##### 什么是订阅模式
+订阅模式代表游标类型。
+- 当一个订阅被创建时，一个游标会指向最后一个消息被消费的位置。
+- 当该订阅的一个consumer重启时，它可以通过游标继续消费消息。
+
+| 订阅模式   | 描述                                                                                         | 笔记                                                      |
+|:-------|:-------------------------------------------------------------------------------------------|:--------------------------------------------------------|
+| `持久化`  | 游标是持久的，它会保留以及持久当前指向位置。<br/>如果一个broker通过灾备重启了，它可以通过Bookeeper来进行游标恢复，所以消息可以从上次最后一次消费的地方继续消费。 | `持久化`是默认的订阅模式                                           |
+| `非持久化` | 游标是非持久的。<br/>一旦broker停止，游标会丢失并且无法恢复，所以无法定位到上次消费的最后一条消息。                                    | Reader的订阅模式是`非持久化`的，它无法阻止topic中的数据被删除。Reader的订阅模式无法被改变。 |
+
+一个订阅可以有一个或者多个consumers。当一个consumer订阅了一个topic，它必须指定subscription名称。一个持久化的subscription和一个非持久化的subscription可以拥有相同的名称。它们彼此独立。如果一个consumer指定了一个先前不存在的subscription，那么这个subscription会自动创建。
+
+##### 何时使用
+默认情况下，一个topic如果没有持久化的订阅，那么这个topic中的消息都会被标记为已删除。如果你想要防止这些消息被标记为已删除，你可以为这个topic创建一个持久化的订阅。这种情况下，只有被确认的消息才会被标记为已删除。更多信息请查看 message retention and expiry。
+
+##### 如何使用
+一个consumer被创建之后，consumer默认的订阅模式是`持久化`的。你可以通过配置来改变。
+```
+        Consumer<byte[]> consumer = pulsarClient.newConsumer()
+                .topic("my-topic")
+                .subscriptionName("my-sub")
+                .subscriptionMode(SubscriptionMode.Durable)
+                .subscriptionMode(SubscriptionMode.NonDurable)
+                .subscribe();
+```
