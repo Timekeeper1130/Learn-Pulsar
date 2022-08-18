@@ -419,5 +419,26 @@ Consumer<byte[]> consumer = pulsarClient.newConsumer(Schema.BYTES)
   <img src="/imgs/subscription/shared.png" />
 </div>
 
-##### key共享（Key_Shared）
+##### Key共享（Key_Shared）
+在Key_Shared类型下，多个消费者可以连接到同一个subscription中，消息会在consumers中分发传递，具有相同key的消息只会发给一个consumer。无论这个消息被重新发送过多少次，它都只会发送给相同的consumer。当一个一个消费者连接或失去连接时，这会导致服务消费者更改一部分消息key。
+<div style="margin: 0 auto">
+  <img src="/imgs/subscription/key-shared.png" />
+</div>
 
+注意当consumers使用Key_Shared的订阅类型时，你需要对producers做出 **禁用batching**或**使用key-based batching**的操作。理由如下：
+- 1.broker通过消息的key来进行消息分发，但默认的batching可能无法将具有相同key的消息打包到同一批中。
+- 2.batch中的第一个消息的key作为整个batch中所有消息的key，这可能会导致一些上下文错误。
+- 
+key-based batching就是用于解决上述问题。这个batching会保证producers将具有相同key的消息保存到同一batch中。没有key的消息将会打包到同一个batch中，这个batch没有key。当broker分发这些batch信息时，他会使用`NON_KEY`来作为key。此外，每个consumer只会收到一个key或者收到一个相同key的batch信息。默认情况下，你可以限制producer往batch中打包信息的数量。
+下面是在Key_Shared订阅类型下使用key-based batching的例子，使用pulsar client：
+```
+Producer<byte[]> producer = client.newProducer()
+                                .topic("my-topic")
+                                .batcherBuilder(BatcherBuilder.KEY_BASED)
+                                .create();
+```
+
+> ###### Key_Shared类型的限制
+> 当你使用Key_Shared类型时，请注意：
+> - 你需要为消息指定一个key
+> - 你无法使用累计消息确认
