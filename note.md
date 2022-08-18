@@ -469,3 +469,39 @@ Producer<byte[]> producer = client.newProducer()
                 .subscriptionMode(SubscriptionMode.NonDurable)
                 .subscribe();
 ```
+
+### 多主题订阅（Multi-topic subscriptions）
+当一个consumer订阅到一个Pulsar topic时，默认情况下，它是订阅到一个特殊的主题，比如`persistent://public/default/my-topic`。从Pulsar版本1.23.0开始，Pulsar消费者可以同时订阅多个topic。你可以通过两种方式来订阅。
+- 基于正则，例如`persistent://public/default/finance-.*`
+- 显示指定topic列表。
+
+> 当使用正则订阅多个topic时，所有topic必须有相同的命名空间。
+
+当订阅了多个topic时，Pulsar客户端会自动调用Pulsar API去查找这些正则/列表定义的topic，如果topic不存在，那么当这些topic创建后，consumer会自动订阅它们。
+> ###### 多个topic无法保证消息顺序
+> 当producer向单个topic发送消息时，所有消息都保证以相同的顺序从该topic读取。但是，这些保证不适用于多个topics。因此，当producer向多个topics发送消息时，从这些topics读取消息的顺序并不一定相同。
+
+以下是多topic订阅的Java示例。
+```
+import java.util.regex.Pattern;
+
+import org.apache.pulsar.client.api.Consumer;
+import org.apache.pulsar.client.api.PulsarClient;
+
+PulsarClient pulsarClient = // 初始化Pulsar client对象
+
+// 订阅namespace下所有topic
+Pattern allTopicsInNamespace = Pattern.compile("persistent://public/default/.*");
+Consumer<byte[]> allTopicsConsumer = pulsarClient.newConsumer()
+                            .topicsPattern(allTopicsInNamespace)
+                            .subscriptionName("subscription-1")
+                            .subscribe();
+                            
+// 订阅namespace下某个topic子集
+Pattern someTopicsInNamespace = Pattern.compile("persistent://public/default/foo.*");
+Consumer<byte[]> someTopicsConsumer = pulsarClient.newConsumer()
+                            .topicsPattern(someTopicsInNamespace)
+                            .subscriptionName("subscription-1")
+                            .subscribe();
+```
+### 分区topic（Partitioned topics）
