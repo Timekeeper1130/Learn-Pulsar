@@ -505,3 +505,46 @@ Consumer<byte[]> someTopicsConsumer = pulsarClient.newConsumer()
                             .subscribe();
 ```
 ### 分区topic（Partitioned topics）
+普通topic只有一个broker为其提供服务，这限制了topic的最大吞吐量。*分区topic*是一种特殊的topic类型，它有多个broker为其服务，因此允许更高的吞吐量。
+
+一个分区topic是由N个内部topic实现的，N就是分区的数量。当发布一个消息到分区topic时，每个消息都会路由到其中一个broker上。分发的过程由Pulsar自动处理。
+
+如下图所示。
+<div style="margin: 0 auto">
+  <img src="/imgs/partitioned-topics/partitioning.png" />
+</div>
+
+*Topic1*有5个分区（P0到P4）分别散落在三个broker上。由于它的分区数量大于broker数量，所以两个broker分别处理两个分区，第三个broker只处理一个分区。
+
+这个topic中的消息会被分发给两个consumer。路由模式（routing mode）确定每个消息分发到哪个分区，而订阅类型决定这些消息发给哪些消费者。
+
+大多数情况下，可以分别决定路由模式和订阅类型。一般来说路由/分区的选择与吞吐量有关，订阅策略与应用程序有关。
+
+普通topic和分区topic在订阅类型上没有区别，因为分区只决定了消息在producer和consumer之间发生的事情。
+
+分区topic需要通过admin API显示指定创建。同时可以指定分区数。
+
+#### 路由模式（Routing modes）
+当发布消息到分区topic时，你必须指定一种路由模式。路由模式决定了你的消息将会被发送到这个topic的哪个分区上。
+有三种路由模式可以使用。
+
+| 模式                  | 说明                                                                                                                                                            |
+|:--------------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| RoundRobinPartition | 如果没有提供key，那么producer将会通过轮询的方式将消息发送给每个分区以达到最大的吞吐量。注意轮询不是以单个消息为单位进行轮询，而是与batching delay的边界相同以确保批处理有效。如果有为消息提供指定的key，producer会进行hash然后将消息发送给对应的partition。这是默认的模式 |
+| SinglePartition     | 如果没有提供key，那么producer将会随机选择一个分区，并且将所有的消息发送到这个分区中。当消息被指定一个key时，producer会进行hash然后将消息发送给对应的partition                                                              |
+| CustomPartition     | 使用自定义的消息路由来进行消息发送，可以通过使用Java客户端以及实现MessageRouter接口来创建自定义的路由模式。                                                                                                |
+
+#### 顺序保证（Ordering guarantee）
+消息的顺序与MessageRoutingMode 和 Message Key有关。通常来说，用户希望每个partition中相同key的消息能够保证有序。
+
+如果给消息指定了一个key，那么当使用`SinglePartition`或`RoundRobinPartition`时消息会通过ProducerBuilder中的HashingScheme来决定发送到哪个分区。
+
+| 顺序保证              | 描述                 | 路由模式与Key                                               |
+|:------------------|:-------------------|:-------------------------------------------------------|
+| Per-key-partition | 一个分区内所有相同key的消息都有序 | 使用`SinglePartition`或`RoundRobinPartition`模式，Key由每个消息提供 |
+| Per-producer      | 来自同一个producer的消息有序 | 使用`SinglePartition`模式，消息不含有Key                         |
+
+#### 哈希策略（Hashing scheme）
+HashingScheme是一个枚举集合，表示在选择用于特定消息的分区时可用的标准哈希函数集。
+
+有两种标准哈希函数可用：`JavaStringHash`和`MurruR3_32Hash`。producer的默认哈希函数是`JavaStringHash`。请注意，当producer来自不同的多语言客户端时，`JavaStringHash`会失效，在这种情况下，建议使用`Murrur3_32Hash`。
