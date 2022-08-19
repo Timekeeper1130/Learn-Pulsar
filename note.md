@@ -378,8 +378,8 @@ Consumer<byte[]> consumer = pulsarClient.newConsumer(Schema.BYTES)
 
 > #### Pub-Sub或Queuing
 > 在Pulsar中，你可以灵活地使用不同的订阅类型
-> - 如果你想要在消费者中实现传统的“fan-out pub-sub messaging”，你可以为每个消费者subscription设定一个独一无二的名称。这是独占订阅类型。
-> - 如果你想要在消费者中实现“message queuing”，可以在多个消费者中共享相同的subscription（shared，failover，key_shared）
+> - 如果你想要在消费者中实现传统的发布订阅类型，你可以为每个消费者的subscription设定一个独一无二的名称。这是独占订阅类型。
+> - 如果你想要在消费者中实现消息队列，可以在多个消费者中共享相同的subscription（shared，failover，key_shared）
 > - 如果你想要实现这两种效果，请将exclusive与其他订阅类型相结合。
  
 #### 订阅类型（Subscription types）
@@ -548,3 +548,49 @@ Consumer<byte[]> someTopicsConsumer = pulsarClient.newConsumer()
 HashingScheme是一个枚举集合，表示在选择用于特定消息的分区时可用的标准哈希函数集。
 
 有两种标准哈希函数可用：`JavaStringHash`和`MurruR3_32Hash`。producer的默认哈希函数是`JavaStringHash`。请注意，当producer来自不同的多语言客户端时，`JavaStringHash`会失效，在这种情况下，建议使用`Murrur3_32Hash`。
+
+### 非持久化主题（Non-persistent topics）
+默认情况下，Pulsar会将所有未确认的消息持久化存储在多个存储节点（BookKeeper bookies）上。持久化topic中的消息数据可以在broker重启后或订阅用户故障转移后恢复。
+
+Pulsar同时也支持*非持久化topics*，这些topic中的消息不会被持久化到硬盘上，只会存储在内存中。当使用非持久时，终止broker或断开主题订户的连接意味着该（非持久）topic上的所有传输中消息都会丢失，这意味着客户端可能会看到消息丢失。
+
+非持久化topic的格式：
+```
+non-persistent://tenant/namespace/topic
+```
+
+在非持久化topic中，broker收到消息后会立刻转发给订阅者而不将他们先进行持久化到BookKeeper中。如果一个订阅者失去连接，broker无法再次传递这些在途的消息，订阅者同时再也无法收到这些消息。在某些情况下，非持久化topic的消息传递速度会比持久化topic传递速度更快，但与此同时，Pulsar的核心优势也将丧失。
+
+> 在非持久化topic下，消息数据只会存在于内存中，并不会对其进行特别的缓存。broker接收到消息的时候会立刻转发给所有连接着的consumer。如果broker宕机或无法从内存中检索消息，那么这个消息可能会丢失。只有当你确定业务场景需要使用非持久化topic时，才可以使用。
+
+默认情况下，broker允许使用非持久化topic，你可以在broker的配置文件中去禁用她们。你可以通过`pulsar-admin topics`的命令去管理这些非持久化的topic。
+
+目前，非持久化且未分区的topic不会持久化到ZooKeeper上，这意味着如果broker自身宕机了，他们不会重新分配给其他broker因为这些东西存在于它们broker自身的内存中。当前的解决方法是在broker配置中将`allowAutoTopicCreation`的值设置为true，并将`AllowAutoTopicCreationType`设置为`non-partitioned`（它们是默认值）。
+
+#### 性能（Performance）
+非持久topic消息传递通常比持久化topic消息传递更快，因为broker不会持久化消息，并在消息传递到连接的broker后立即将ACK发送回producer。因此，producer可以看到非持久topic发布延迟相对较低。
+
+#### 客户端API（Client API）
+Producers和consumers可以像连接持久化topic那样连接到非持久化topic上，主要区别就是在于非持久化topic必须以`non-persistent`开头。同样非持久化topic有三种订阅类型exclusive，shared和failover。
+
+下面是Java consumer使用非持久化topic的例子。
+```
+PulsarClient client = PulsarClient.builder()
+        .serviceUrl("pulsar://localhost:6650")
+        .build();
+String npTopic = "non-persistent://public/default/my-topic";
+String subscriptionName = "my-subscription-name";
+
+Consumer<byte[]> consumer = client.newConsumer()
+        .topic(npTopic)
+        .subscriptionName(subscriptionName)
+        .subscribe();
+```
+下面是Java producer使用非持久化topic的例子
+```
+Producer<byte[]> producer = client.newProducer()
+        .topic(npTopic)
+        .create();
+```
+
+### 系统Topic（System Topic）
