@@ -594,3 +594,28 @@ Producer<byte[]> producer = client.newProducer()
 ```
 
 ### 系统Topic（System Topic）
+系统Topic时Pulsar内置的topic。它可以是持久化或非持久化Topic。
+
+系统Topic是用来实现某些功能以及消除对第三方组件的依赖，比如事务、心跳检测、topic-level策略以及资源组服务。系统topic使这些功能变得更加简单，独立和灵活。拿心跳检测举例，你可以允许生产者消费者在heartbeat namespace下进行生产和消费来进行health check来判断当前服务是否存货。
+
+根据namespace的不同，存在不同的系统topic。下表概述了每个特定namespace的可用系统topic。
+
+| Namespace       | TopicName                               | Domain         | Count                                                           | Usage                             |
+|:----------------|:----------------------------------------|:---------------|:----------------------------------------------------------------|:----------------------------------|
+| pulsar/system   | `transaction_coordinator_assign_${id}`  | Persistent     | Default 16                                                      | Transaction coordinator           |
+| pulsar/system   | `__transaction_log_${tc_id}`            | Persistent     | Default 16                                                      | Transaction log                   |
+| pulsar/system   | `resource-usage`                        | Non-persistent | Default 4                                                       | Resource group service            |
+| host/port       | `heartbeat`                             | Persistent     | 1                                                               | Heartbeat detection               |
+| User-defined-ns | `__change_events`                       | Persistent     | Default 4                                                       | Topic events                      |
+| User-defined-ns | `__transaction_buffer_snapshot`         | Persistent     | One per namespace                                               | Transaction buffer snapshots      |
+| User-defined-ns | `${topicName}__transaction_pending_ack` | Persistent     | One per every topic subscription acknowledged with transactions | Acknowledgments with transactions |
+
+> #### 注意
+> - 你无法创建任何系统Topics。当你想要通过Pulsar admin API获得topic列表时，你可以通过添加`--include-system-topic`来获取系统topics。
+> - 从Pulsar2.11.0开始，系统topics默认启用。在先前的版本中，你需要在`conf/broker.conf`或`conf/standalone.conf`中启用。
+> ```
+> systemTopicEnabled = true
+> topicLevelPoliciesEnabled = true
+> ```
+
+### 消息重传（Message redelivery）
