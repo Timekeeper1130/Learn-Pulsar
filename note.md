@@ -619,3 +619,15 @@ Producer<byte[]> producer = client.newProducer()
 > ```
 
 ### 消息重传（Message redelivery）
+Pulsar支持优雅的灾备处理保证数据不会丢失。软件总是会出现意料之外的异常，在某些时候消息可能无法发送成功。因此，具有处理故障的内置机制非常重要，特别是在异步消息传递中，比如
+- Consumers与数据库或HTTP服务器断开连接。当这种情况发生的时候，消费者在往数据库写入数据时会造成短暂的脱机。消费者调用的外部HTTP服务器暂时不可用。
+- 由于Consumer的crash导致Consumers与broke断开连接后，未确认的消息会发送给其他可用的consumers。
+
+Apache Pulsar使用至少一次传递来避免这些和其他消息传递失败，确保Pulsar的多次处理消息。
+
+要利用消息重新传递，您需要在broker可以在Apache Pulsar客户端中重新发送未确认消息之前启用此机制。您可以使用三种方法激活Apache Pulsar中的消息重新传递机制。
+- Negative Acknowledgment
+- Acknowledgment Timeout
+- Retry letter topic
+
+### 消息的保留和过期（Message retention and expiry）
