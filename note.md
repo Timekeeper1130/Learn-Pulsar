@@ -631,3 +631,20 @@ Apache Pulsar使用至少一次传递来避免这些和其他消息传递失败�
 - Retry letter topic
 
 ### 消息的保留和过期（Message retention and expiry）
+默认情况下，Pulsar的broker：
+- 立刻删除consumer的ack的消息。
+- 持久化未ack的消息到message backlog。
+
+Pulsar有两种特性，让你可以覆盖这两种默认的行为
+- 消息保留：你可以在consumer ack消息之后继续保留消息。
+- 消息过期：你可以为未ACK的消息设置一个TTL。
+
+> 所有的消息保留和过期都是namespace级别的。
+
+下图说明了两个概念。
+<div style="margin: 0 auto">
+  <img src="/imgs/retention-and-expiry/retention-expiry.png" />
+</div>
+
+### 重复消息删除（Message deduplication）
+
